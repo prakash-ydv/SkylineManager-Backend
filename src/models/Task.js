@@ -58,6 +58,7 @@ const taskSchema = new mongoose.Schema(
         userName: String,
       },
     ],
+    completedAt: Date,
   },
   {
     timestamps: true,

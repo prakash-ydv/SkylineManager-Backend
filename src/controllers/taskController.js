@@ -1,5 +1,6 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 // @desc    Create new task
 // @route   POST /api/tasks
@@ -28,6 +29,14 @@ const createTask = async (req, res) => {
   });
 
   if (task) {
+    // Create notification for assigned user
+    await Notification.create({
+      user: assignedTo,
+      text: `New task assigned: ${title}`,
+      type: 'task_assigned',
+      relatedId: task._id
+    });
+
     res.status(201).json(task);
   } else {
     res.status(400);
@@ -72,6 +81,14 @@ const updateTask = async (req, res) => {
         user: req.user._id,
         userName: req.user.name,
       });
+      
+      if (req.body.status === 'Completed') {
+        task.completedAt = new Date();
+      } else if (task.status === 'Completed') {
+        // If it was completed but now moved back
+        task.completedAt = undefined;
+      }
+      
       task.status = req.body.status;
     }
     
@@ -140,21 +157,76 @@ const getEmployeeStats = async (req, res) => {
     // Count tasks completed on this day
     const intensity = tasks.filter(t => {
       if (t.status !== 'Completed') return false;
-      const completedAt = new Date(t.updatedAt);
+      const completedAt = new Date(t.completedAt || t.updatedAt);
       return completedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) === dayStr;
     }).length;
     
     heatmap.push({ intensity, date: dayStr });
   }
 
+  // Efficiency logic (based on on-time completions)
+  const completedTasks = tasks.filter(t => t.status === 'Completed');
+  const onTimeCompletions = completedTasks.filter(t => {
+    if (!t.dueDate) return true;
+    return new Date(t.completedAt || t.updatedAt) <= new Date(t.dueDate);
+  }).length;
+  
+  const efficiency = tasks.length > 0 ? Math.round((onTimeCompletions / tasks.length) * 100) : 0;
+
+  // Streak logic (consecutive days of completion)
+  const completionDates = completedTasks.map(t => new Date(t.completedAt || t.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' }));
+  const uniqueDates = [...new Set(completionDates)].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  
+  let streak = 0;
+  if (uniqueDates.length > 0) {
+    const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+
+    // A streak is valid if the most recent completion was today OR yesterday
+    let currentCheckDate;
+    if (uniqueDates.includes(todayStr)) {
+      currentCheckDate = new Date();
+    } else if (uniqueDates.includes(yesterdayStr)) {
+      currentCheckDate = yesterday;
+    }
+
+    if (currentCheckDate) {
+      let checkStr = currentCheckDate.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+      while (uniqueDates.includes(checkStr)) {
+        streak++;
+        currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+        checkStr = currentCheckDate.toLocaleDateString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric' });
+      }
+    }
+  }
+
+  // Weekly performance (last 7 days)
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weeklyPerformance = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const dayName = days[date.getDay()];
+    
+    const count = completedTasks.filter(t => {
+      const completedAt = new Date(t.completedAt || t.updatedAt);
+      return completedAt.toLocaleDateString('en-US') === date.toLocaleDateString('en-US');
+    }).length;
+    
+    weeklyPerformance.push({ name: dayName, tasks: count });
+  }
+
   res.json({
     stats: {
-      efficiency: 85 + Math.floor(Math.random() * 10), // Mock efficiency logic
-      streak: 3 + Math.floor(Math.random() * 5),     // Mock streak logic
+      efficiency,
+      streak,
       completionRate,
       tasksDone,
     },
     heatmap,
+    weeklyPerformance
   });
 };
 
@@ -203,4 +275,19 @@ const addComment = async (req, res) => {
   }
 };
 
-export { createTask, getTasks, updateTask, createTasksBulk, getEmployeeStats, addComment };
+// @desc    Get global team activity (who is working on what)
+// @route   GET /api/tasks/global-activity
+// @access  Private
+const getGlobalActivity = async (req, res) => {
+  // All authenticated users can see what the team is working on
+  const activity = await Task.find({ 
+    status: { $ne: 'Completed' } 
+  })
+  .populate('assignedTo', 'name role')
+  .sort({ updatedAt: -1 })
+  .limit(20); // Limit to recent 20 active tasks for performance
+
+  res.json(activity);
+};
+
+export { createTask, getTasks, updateTask, createTasksBulk, getEmployeeStats, addComment, getGlobalActivity };

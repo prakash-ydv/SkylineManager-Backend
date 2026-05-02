@@ -10,7 +10,9 @@ const getLeads = async (req, res) => {
   if (req.user.role === 'admin') {
     leads = await Lead.find({}).populate('assignedTo', 'name email');
   } else {
-    leads = await Lead.find({ assignedTo: req.user._id });
+    leads = await Lead.find({ 
+      assignedTo: req.user._id
+    });
   }
   res.json(leads);
 };
@@ -121,4 +123,27 @@ const deleteLeadsByCampaign = async (req, res) => {
   res.json({ message: `${result.modifiedCount} leads soft-deleted from campaign: ${title}` });
 };
 
-export { getLeads, bulkUploadLeads, updateLead, deleteLead, deleteLeadsByCampaign };
+// @desc    Toggle campaign activation status
+// @route   PUT /api/marketing/campaign/:title/toggle
+// @access  Private/Admin
+const toggleCampaignStatus = async (req, res) => {
+  const { title } = req.params;
+  const { deactivate } = req.body;
+
+  if (!title) {
+    res.status(400);
+    throw new Error('Please provide a campaign title');
+  }
+
+  await Lead.updateMany({ campaignTitle: title }, { $set: { isDeactivated: deactivate } });
+  res.json({ message: `Campaign ${title} has been ${deactivate ? 'deactivated' : 'activated'}` });
+};
+
+export { 
+  getLeads, 
+  bulkUploadLeads, 
+  updateLead, 
+  deleteLead, 
+  deleteLeadsByCampaign,
+  toggleCampaignStatus 
+};
