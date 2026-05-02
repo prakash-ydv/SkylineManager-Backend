@@ -1,0 +1,8 @@
+node_modules
+.env
+.DS_Store
+Thumbs.db
+.yarnrc
+yarn.lock
+package-lock.json
+yarn-error.log
