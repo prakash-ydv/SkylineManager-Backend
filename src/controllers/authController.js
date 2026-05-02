@@ -1,4 +1,6 @@
 import User from '../models/User.js';
+import Task from '../models/Task.js';
+import Lead from '../models/Lead.js';
 import generateToken from '../utils/generateToken.js';
 import { validationResult } from 'express-validator';
 
@@ -101,8 +103,32 @@ const getUserProfile = async (req, res) => {
 // @route   GET /api/auth/users
 // @access  Private/Admin
 const getUsers = async (req, res) => {
-  const users = await User.find({});
-  res.json(users);
+  const users = await User.find({}).lean();
+  
+  const usersWithStats = await Promise.all(users.map(async (user) => {
+    let tasksCount = 0;
+    let performanceRate = 0;
+
+    if (user.role === 'marketing') {
+      const totalLeads = await Lead.countDocuments({ assignedTo: user._id });
+      const convertedLeads = await Lead.countDocuments({ assignedTo: user._id, status: 'Converted' });
+      tasksCount = totalLeads;
+      performanceRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+    } else {
+      const totalTasks = await Task.countDocuments({ assignedTo: user._id });
+      const completedTasks = await Task.countDocuments({ assignedTo: user._id, status: 'Completed' });
+      tasksCount = totalTasks;
+      performanceRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    }
+
+    return {
+      ...user,
+      tasksCount,
+      performanceRate,
+    };
+  }));
+
+  res.json(usersWithStats);
 };
 
 // @desc    Update user
