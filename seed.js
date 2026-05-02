@@ -12,13 +12,13 @@ const seedAdmin = async () => {
     await User.deleteMany();
 
     const admin = await User.create({
-      name: 'Prakash Kumar',
-      email: 'prakashh@skylineorbit.in',
-      password: 'password123',
+      name: '',
+      email: '',
+      password: '',
       role: 'admin',
       status: 'active',
     });
-
+    
     console.log('✅ Admin User Created:');
     console.log(`Email: ${admin.email}`);
     console.log(`Password: password123`);
