@@ -51,7 +51,7 @@ const loginUser = async (req, res) => {
   const user = await User.findOne({ email }).select('+password');
 
   if (user && (await user.matchPassword(password))) {
-    generateToken(res, user._id);
+    const token = generateToken(res, user._id);
 
     res.json({
       _id: user._id,
@@ -59,6 +59,7 @@ const loginUser = async (req, res) => {
       email: user.email,
       role: user.role,
       status: user.status,
+      token,
     });
   } else {
     res.status(401);

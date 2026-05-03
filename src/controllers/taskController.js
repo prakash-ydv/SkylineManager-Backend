@@ -92,6 +92,16 @@ const updateTask = async (req, res) => {
       task.status = req.body.status;
     }
     
+    if (req.body.assignedTo && req.body.assignedTo !== task.assignedTo.toString()) {
+      task.timeline.push({
+        event: 'Task Reassigned',
+        description: `Task reassigned by ${req.user.name}`,
+        user: req.user._id,
+        userName: req.user.name,
+      });
+      task.assignedTo = req.body.assignedTo;
+    }
+    
     task.priority = req.body.priority || task.priority;
     task.title = req.body.title || task.title;
 
