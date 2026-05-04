@@ -21,7 +21,7 @@ const getLeads = async (req, res) => {
 // @route   POST /api/marketing/bulk
 // @access  Private/Admin
 const bulkUploadLeads = async (req, res) => {
-  const { leads, assignedTo, campaignTitle } = req.body;
+  const { leads, assignedTo, campaignTitle, batchNumber } = req.body;
 
   if (!leads || !Array.isArray(leads)) {
     res.status(400);
@@ -46,6 +46,7 @@ const bulkUploadLeads = async (req, res) => {
     ...lead,
     assignedTo: user._id,
     campaignTitle: campaignTitle || 'Untitled Campaign',
+    batchNumber: batchNumber || `BATCH-${Date.now()}`,
   }));
 
   const createdLeads = await Lead.insertMany(leadsWithAssignment);
@@ -139,11 +140,27 @@ const toggleCampaignStatus = async (req, res) => {
   res.json({ message: `Campaign ${title} has been ${deactivate ? 'deactivated' : 'activated'}` });
 };
 
+// @desc    Delete all leads by batch number
+// @route   DELETE /api/marketing/batch/:batchNumber
+// @access  Private/Admin
+const deleteLeadsByBatch = async (req, res) => {
+  const { batchNumber } = req.params;
+
+  if (!batchNumber) {
+    res.status(400);
+    throw new Error('Please provide a batch number');
+  }
+
+  const result = await Lead.deleteMany({ batchNumber });
+  res.json({ message: `${result.deletedCount} leads permanently deleted from batch: ${batchNumber}` });
+};
+
 export { 
   getLeads, 
   bulkUploadLeads, 
   updateLead, 
   deleteLead, 
   deleteLeadsByCampaign,
-  toggleCampaignStatus 
+  toggleCampaignStatus,
+  deleteLeadsByBatch
 };

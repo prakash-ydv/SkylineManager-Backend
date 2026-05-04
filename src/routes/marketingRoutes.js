@@ -5,7 +5,8 @@ import {
   updateLead, 
   deleteLead, 
   deleteLeadsByCampaign,
-  toggleCampaignStatus 
+  toggleCampaignStatus,
+  deleteLeadsByBatch
 } from '../controllers/marketingController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
@@ -16,6 +17,7 @@ router.route('/leads')
 
 router.post('/bulk', protect, authorize('admin'), bulkUploadLeads);
 router.delete('/campaign/:title', protect, authorize('admin'), deleteLeadsByCampaign);
+router.delete('/batch/:batchNumber', protect, authorize('admin'), deleteLeadsByBatch);
 router.put('/campaign/:title/toggle', protect, authorize('admin'), toggleCampaignStatus);
 
 router.route('/leads/:id')

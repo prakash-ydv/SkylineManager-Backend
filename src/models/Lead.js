@@ -38,6 +38,7 @@ const leadSchema = new mongoose.Schema(
       default: 'New',
     },
     campaignTitle: String,
+    batchNumber: String,
     isDeleted: {
       type: Boolean,
       default: false,
