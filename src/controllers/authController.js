@@ -48,9 +48,14 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email }).select('+password');
+  const cleanEmail = email ? email.trim() : '';
+  const escapedEmail = cleanEmail.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  
+  const user = await User.findOne({ email: new RegExp(`^${escapedEmail}$`, 'i') }).select('+password');
 
-  if (user && (await user.matchPassword(password))) {
+  const cleanPassword = password ? password.trim() : '';
+
+  if (user && (await user.matchPassword(password) || await user.matchPassword(cleanPassword))) {
     const token = generateToken(res, user._id);
 
     res.json({
