@@ -8,6 +8,7 @@ import taskRoutes from './routes/taskRoutes.js';
 import marketingRoutes from './routes/marketingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 
 dotenv.config();
@@ -32,6 +33,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/activity', activityRoutes);
 
 app.get("/", (req, res) => {
     res.send("API running 🚀");
