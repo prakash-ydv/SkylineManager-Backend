@@ -300,4 +300,65 @@ const getGlobalActivity = async (req, res) => {
   res.json(activity);
 };
 
-export { createTask, getTasks, updateTask, createTasksBulk, getEmployeeStats, addComment, getGlobalActivity };
+// @desc    Delete task
+// @route   DELETE /api/tasks/:id
+// @access  Private/Admin
+const deleteTask = async (req, res) => {
+  const task = await Task.findById(req.params.id);
+
+  if (task) {
+    if (req.user.role !== 'admin') {
+      res.status(403);
+      throw new Error('Not authorized to delete this task');
+    }
+    await Task.deleteOne({ _id: req.params.id });
+    res.json({ message: 'Task removed' });
+  } else {
+    res.status(404);
+    throw new Error('Task not found');
+  }
+};
+
+// @desc    Update all tasks status
+// @route   PUT /api/tasks/bulk-status
+// @access  Private/Admin
+const updateAllTasksStatus = async (req, res) => {
+  const { status } = req.body;
+
+  if (!status) {
+    res.status(400);
+    throw new Error('Please provide a status');
+  }
+
+  if (req.user.role !== 'admin') {
+    res.status(403);
+    throw new Error('Not authorized to update all tasks');
+  }
+
+  const result = await Task.updateMany({}, { 
+    $set: { status },
+    $push: { 
+      timeline: {
+        event: 'Bulk Status Change',
+        description: `All tasks were updated to ${status} by Admin`,
+        user: req.user._id,
+        userName: req.user.name,
+        time: new Date()
+      }
+    }
+  });
+
+  res.json({ message: `Updated ${result.modifiedCount} tasks`, modifiedCount: result.modifiedCount });
+};
+
+export { 
+  createTask, 
+  getTasks, 
+  updateTask, 
+  createTasksBulk, 
+  getEmployeeStats, 
+  addComment, 
+  getGlobalActivity,
+  deleteTask,
+  updateAllTasksStatus
+};
