@@ -9,12 +9,12 @@ export const logActivity = async (req, res) => {
   try {
     const type = req.body.type || 'open';
     
-    // Check if user has already logged an activity of this type in the last 20 minutes
-    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
+    // Check if user has already logged an activity of this type in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const existingActivity = await Activity.findOne({
       user: req.user._id,
       type: type,
-      timestamp: { $gte: twentyMinutesAgo }
+      timestamp: { $gte: fiveMinutesAgo }
     });
 
     if (existingActivity) {
@@ -128,9 +128,24 @@ export const getActivitySummary = async (req, res) => {
 // @access  Private/Admin
 export const getUsersActivityList = async (req, res) => {
     try {
+        const { date } = req.query;
+        const searchDate = date ? new Date(date) : new Date();
+        searchDate.setHours(0, 0, 0, 0);
+        
+        const nextDay = new Date(searchDate);
+        nextDay.setDate(searchDate.getDate() + 1);
+
         const users = await User.find({}).select('name email role');
         
         const userActivity = await Activity.aggregate([
+            {
+                $match: {
+                    timestamp: {
+                        $gte: searchDate,
+                        $lt: nextDay
+                    }
+                }
+            },
             {
                 $sort: { timestamp: -1 }
             },
@@ -138,17 +153,7 @@ export const getUsersActivityList = async (req, res) => {
                 $group: {
                     _id: "$user",
                     lastActivity: { $first: "$timestamp" },
-                    todayCount: {
-                        $sum: {
-                            $cond: [
-                                {
-                                    $gte: ["$timestamp", new Date(new Date().setHours(0,0,0,0))]
-                                },
-                                1,
-                                0
-                            ]
-                        }
-                    }
+                    todayCount: { $sum: 1 }
                 }
             }
         ]);
@@ -173,3 +178,43 @@ export const getUsersActivityList = async (req, res) => {
         });
     }
 }
+
+// @desc    Get raw activity logs for a specific user and date
+// @route   GET /api/activity/raw
+// @access  Private/Admin
+export const getRawActivityLogs = async (req, res) => {
+  try {
+    const { userId, date } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const searchDate = date ? new Date(date) : new Date();
+    searchDate.setHours(0, 0, 0, 0);
+    
+    const nextDay = new Date(searchDate);
+    nextDay.setDate(searchDate.getDate() + 1);
+
+    // Also include a small buffer for potential timezone variations if needed, 
+    // but standardizing on the same searchDate/nextDay logic as getUsersActivityList is key.
+
+    const logs = await Activity.find({
+      user: new mongoose.Types.ObjectId(userId),
+      timestamp: {
+        $gte: searchDate,
+        $lt: nextDay,
+      }
+    }).sort({ timestamp: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: logs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
