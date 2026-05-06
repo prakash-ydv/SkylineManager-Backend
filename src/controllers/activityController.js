@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Activity from '../models/Activity.js';
 import User from '../models/User.js';
 
@@ -6,9 +7,27 @@ import User from '../models/User.js';
 // @access  Private
 export const logActivity = async (req, res) => {
   try {
+    const type = req.body.type || 'open';
+    
+    // Check if user has already logged an activity of this type in the last 20 minutes
+    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
+    const existingActivity = await Activity.findOne({
+      user: req.user._id,
+      type: type,
+      timestamp: { $gte: twentyMinutesAgo }
+    });
+
+    if (existingActivity) {
+      return res.status(200).json({
+        success: true,
+        message: 'Activity already logged recently',
+        data: existingActivity
+      });
+    }
+
     const activity = await Activity.create({
       user: req.user._id,
-      type: req.body.type || 'open',
+      type: type,
     });
 
     res.status(201).json({
@@ -45,7 +64,7 @@ export const getActivitySummary = async (req, res) => {
     };
 
     if (userId) {
-      matchQuery.user = userId;
+      matchQuery.user = new mongoose.Types.ObjectId(userId);
     }
 
     // Interval in minutes (default 20)
